@@ -374,13 +374,15 @@ def generate_sdk(ctx, sdk_type, stage, outdir):
                     "this argument is specified, a single "
                     "zip file will be created instead."))
 @click.option('--stage', default=DEFAULT_STAGE_NAME)
+@click.option('--pkg-format', default='cloudformation',
+              type=click.Choice(['cloudformation', 'terraform']))
 @click.argument('out')
 @click.pass_context
-def package(ctx, single_file, stage, out):
-    # type: (click.Context, bool, str, str) -> None
+def package(ctx, single_file, stage, out, pkg_format='cloudformation'):
+    # type: (click.Context, bool, str, str, str) -> None
     factory = ctx.obj['factory']  # type: CLIFactory
     config = factory.create_config_obj(stage)
-    packager = factory.create_app_packager(config)
+    packager = factory.create_app_packager(config, pkg_format)
     if single_file:
         dirname = tempfile.mkdtemp()
         try:
