@@ -1,5 +1,6 @@
-import os
 import copy
+import json
+import os
 
 from typing import Any, Dict, List, Set, Union  # noqa
 from typing import cast
@@ -95,6 +96,24 @@ class SAMTemplateGenerator(object):
                 'Type': 'Schedule',
                 'Properties': {
                     'Schedule': resource.schedule_expression,
+                }
+            }
+        }
+
+    def _generate_cloudwatchevent(self, resource, template):
+        # type: (models.CloudWatchEvent, Dict[str, Any]) -> None
+        function_cfn_name = to_cfn_resource_name(
+            resource.lambda_function.resource_name)
+        function_cfn = template['Resources'][function_cfn_name]
+        event_cfn_name = self._register_cfn_resource_name(
+            resource.resource_name)
+        function_cfn['Properties']['Events'] = {
+            event_cfn_name: {
+                'Type': 'CloudWatchEvent',
+                'Properties': {
+                    # For api calls we need serialized string form, for
+                    # SAM Templates we need datastructures.
+                    'Pattern': json.loads(resource.event_pattern)
                 }
             }
         }

@@ -492,6 +492,13 @@ class DecoratorAPI(object):
             registration_kwargs={'queue': queue, 'batch_size': batch_size}
         )
 
+    def on_cw_event(self, event_pattern, name=None):
+        return self._create_registration_function(
+            handler_type='on_cw_event',
+            name=name,
+            registration_kwargs={'event_pattern': event_pattern}
+        )
+
     def schedule(self, expression, name=None):
         return self._create_registration_function(
             handler_type='schedule',
@@ -535,6 +542,7 @@ class DecoratorAPI(object):
             'on_s3_event': S3Event,
             'on_sns_message': SNSEvent,
             'on_sqs_message': SQSEvent,
+            'on_cw_event': CloudWatchEvent,
             'schedule': CloudWatchEvent,
         }
         if handler_type in event_classes:
@@ -623,8 +631,16 @@ class _HandlerRegistration(object):
         )
         self.event_sources.append(sqs_config)
 
-    def _register_schedule(self, name, handler_string, kwargs, **unused):
+    def _register_on_cw_event(self, name, handler_string, kwargs, **unused):
         event_source = CloudWatchEventConfig(
+            name=name,
+            event_pattern=kwargs['event_pattern'],
+            handler_string=handler_string
+        )
+        self.event_sources.append(event_source)
+
+    def _register_schedule(self, name, handler_string, kwargs, **unused):
+        event_source = ScheduledEventConfig(
             name=name,
             schedule_expression=kwargs['expression'],
             handler_string=handler_string,
@@ -1064,10 +1080,16 @@ class BaseEventSourceConfig(object):
         self.handler_string = handler_string
 
 
-class CloudWatchEventConfig(BaseEventSourceConfig):
+class ScheduledEventConfig(BaseEventSourceConfig):
     def __init__(self, name, handler_string, schedule_expression):
-        super(CloudWatchEventConfig, self).__init__(name, handler_string)
+        super(ScheduledEventConfig, self).__init__(name, handler_string)
         self.schedule_expression = schedule_expression
+
+
+class CloudWatchEventConfig(BaseEventSourceConfig):
+    def __init__(self, name, handler_string, event_pattern):
+        super(CloudWatchEventConfig, self).__init__(name, handler_string)
+        self.event_pattern = event_pattern
 
 
 class ScheduleExpression(object):

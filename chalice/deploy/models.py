@@ -165,6 +165,18 @@ class LambdaFunction(ManagedModel):
 
 
 @attrs
+class CloudWatchEvent(ManagedModel):
+    resource_type = 'cw_event'
+    rule_name = attrib()        # type: str
+    event_pattern = attrib()    # type: str
+    lambda_function = attrib()  # type: LambdaFunction
+
+    def dependencies(self):
+        # type: () -> List[Model]
+        return [self.lambda_function]
+
+
+@attrs
 class ScheduledEvent(ManagedModel):
     resource_type = 'scheduled_event'
     rule_name = attrib()            # type: str
