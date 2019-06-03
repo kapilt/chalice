@@ -541,6 +541,8 @@ class TerraformGenerator(TemplateGenerator):
             func_definition['environment'] = {
                 'variables': resource.environment_variables
             }
+        if resource.layers:
+            func_definition['layers'] = list(resource.layers)
 
         if isinstance(resource.role, models.ManagedIAMRole):
             func_definition['role'] = '${aws_iam_role.%s.arn}' % (

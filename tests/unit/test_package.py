@@ -194,6 +194,13 @@ class TestTerraformTemplate(TemplateTestBase):
             'subnet_ids': ['sn1', 'sn2'],
             'security_group_ids': ['sg1', 'sg2']}
 
+    def test_adds_layers_when_provided(self):
+        function = self.lambda_function()
+        function.layers = layers = ['arn://layer1', 'arn://layer2']
+        template = self.template_gen.generate([function])
+        tf_resource = self.get_function(template)
+        assert tf_resource['layers'] == layers
+
     def test_adds_reserved_concurrency_when_provided(self, sample_app):
         function = self.lambda_function()
         function.reserved_concurrency = 5
