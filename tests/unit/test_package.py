@@ -85,6 +85,13 @@ def test_terraform_post_processor_moves_files_once():
         'bar']['filename'] == ('./deployment.zip')
 
 
+def test_template_generator_default():
+    tgen = package.TemplateGenerator()
+
+    with pytest.raises(package.UnsupportedFeatureError):
+        tgen.dispatch(models.Model(), {})
+
+
 class TemplateTestBase(object):
 
     template_gen_factory = None
