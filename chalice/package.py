@@ -185,6 +185,12 @@ class SAMTemplateGenerator(TemplateGenerator):
             }
             lambdafunction_definition['Properties'].update(
                 reserved_concurrency_config)
+        if resource.layers:
+            layers_config = {
+                'Layers': resource.layers
+            }  # type: Dict[str, List[str]]
+            lambdafunction_definition['Properties'].update(layers_config)
+
         resources[cfn_name] = lambdafunction_definition
         self._add_iam_role(resource, resources[cfn_name])
 
