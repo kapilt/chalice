@@ -7,9 +7,10 @@ provides functionality that allows you to manage deployments yourself using
 terraform.  This is provided via the ``chalice package --pkg-format terraform``
 command.
 
-When you run this command, chalice will generate the AWS Lambda deployment
-package that contains your application as well as a `Terraform <https://terraform.io>`__
-template.  You can then use a terraform to deploy your chalice application.
+When you run this command, chalice will generate the AWS Lambda
+deployment package that contains your application and a `Terraform
+<https://terraform.io>`__ configuration file. You can then use the
+terraform cli to deploy your chalice application.
 
 Considerations
 --------------
@@ -46,8 +47,8 @@ First install the necessary packages::
     $ virtualenv /tmp/venv
     $ . /tmp/venv/bin/activate
     $ pip install chalice awscli
-    $ chalice new-project test-cfn-deploy
-    $ cd test-cfn-deploy
+    $ chalice new-project test-tf-deploy
+    $ cd test-tf-deploy
 
 At this point we've installed chalice and the AWS CLI and we have
 a basic app created locally.  Next we'll run the ``package`` command
@@ -57,7 +58,7 @@ and look at its contents::
     Creating deployment package.
     $ ls -la /tmp/packaged-app/
     -rw-r--r--   1 j         wheel  3355270 May 25 14:20 deployment.zip
-    -rw-r--r--   1 j         wheel     3068 May 25 14:20 sam.json
+    -rw-r--r--   1 j         wheel     3068 May 25 14:20 chalice.tf.json
 
     $ unzip -l /tmp/packaged-app/deployment.zip  | tail -n 5
         17292  05-25-17 14:19   chalice/app.py
