@@ -490,7 +490,7 @@ class TestSAMTemplate(TemplateTestBase):
     def test_adds_layers_when_provided(self, sample_app):
         function = self.lambda_function()
         function.layers = ['arn:aws:layer1', 'arn:aws:layer2']
-        template = self.template_gen.generate_sam_template([function])
+        template = self.template_gen.generate([function])
         cfn_resource = list(template['Resources'].values())[0]
         assert cfn_resource['Properties']['Layers'] == [
             'arn:aws:layer1',
