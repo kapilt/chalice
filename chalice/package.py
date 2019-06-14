@@ -511,15 +511,9 @@ class TerraformGenerator(TemplateGenerator):
                 'source_arn': topic_arn
         }
 
-    def _generate_scheduledevent(self, resource, template):
-        # type: (models.ScheduledEvent, Dict[str, Any]) -> None
+    def _generate_common_cwe(self, resource, template):
+        # type: (models.CloudWatchEvent, Dict[str, Any]) -> None
 
-        template['resource'].setdefault(
-            'aws_cloudwatch_event_rule', {})[
-                resource.resource_name] = {
-                    'name': resource.resource_name,
-                    'schedule_expression': resource.schedule_expression
-        }
         template['resource'].setdefault(
             'aws_cloudwatch_event_target', {})[
                 resource.resource_name] = {
@@ -537,6 +531,28 @@ class TerraformGenerator(TemplateGenerator):
                     'source_arn': "${aws_cloudwatch_event_rule.%s.arn}" % (
                         resource.resource_name)
         }
+
+    def _generate_cw_event(self, resource, template):
+        # type: (models.CloudWatchEvent, Dict[str, Any]) -> None
+
+        template['resource'].setdefault(
+            'aws_cloudwatch_event_rule', {})[
+                resource.resource_name] = {
+                    'name': resource.resource_name,
+                    'event_pattern': resource.event_pattern
+        }
+        self._generate_common_cwe(resource, template)
+
+    def _generate_scheduledevent(self, resource, template):
+        # type: (models.ScheduledEvent, Dict[str, Any]) -> None
+
+        template['resource'].setdefault(
+            'aws_cloudwatch_event_rule', {})[
+                resource.resource_name] = {
+                    'name': resource.resource_name,
+                    'schedule_expression': resource.schedule_expression
+        }
+        self._generate_common_cwe(resource, template)
 
     def _generate_lambdafunction(self, resource, template):
         # type: (models.LambdaFunction, Dict[str, Any]) -> None
