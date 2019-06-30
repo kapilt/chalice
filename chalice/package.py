@@ -532,7 +532,7 @@ class TerraformGenerator(TemplateGenerator):
                         resource.resource_name)
         }
 
-    def _generate_cw_event(self, resource, template):
+    def _generate_cloudwatchevent(self, resource, template):
         # type: (models.CloudWatchEvent, Dict[str, Any]) -> None
 
         template['resource'].setdefault(
