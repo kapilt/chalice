@@ -1086,6 +1086,8 @@ class TestSwaggerBuilder(object):
         rest_api = models.RestAPI(
             resource_name='foo',
             swagger_doc=models.Placeholder.BUILD_STAGE,
+            minimum_compression='',
+            endpoint_type='EDGE',
             api_gateway_stage='api',
             lambda_function=None,
         )

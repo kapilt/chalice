@@ -11,7 +11,7 @@ import base64
 from collections import defaultdict
 
 
-__version__ = '1.8.0'
+__version__ = '1.9.0'
 _PARAMS = re.compile(r'{\w+}')
 
 # Implementation note:  This file is intended to be a standalone file
@@ -547,7 +547,7 @@ class DecoratorAPI(object):
     def route(self, path, **kwargs):
         return self._create_registration_function(
             handler_type='route',
-            name=kwargs.get('name'),
+            name=kwargs.pop('name', None),
             # This looks a little weird taking kwargs as a key,
             # but we want to preserve keep the **kwargs signature
             # in the route decorator.
@@ -923,12 +923,12 @@ class Chalice(_HandlerRegistration, DecoratorAPI):
                                 status_code=e.STATUS_CODE)
         except Exception:
             headers = {}
+            self.log.error("Caught exception for %s", view_function,
+                           exc_info=True)
             if self.debug:
                 # If the user has turned on debug mode,
-                # we'll let the original exception propogate so
+                # we'll let the original exception propagate so
                 # they get more information about what went wrong.
-                self.log.debug("Caught exception for %s", view_function,
-                               exc_info=True)
                 stack_trace = ''.join(traceback.format_exc())
                 body = stack_trace
                 headers['Content-Type'] = 'text/plain'

@@ -1325,12 +1325,13 @@ def test_import_rest_api(stubbed_session):
     apig = stubbed_session.stub('apigateway')
     swagger_doc = {'swagger': 'doc'}
     apig.import_rest_api(
+        parameters={'endpointConfigurationTypes': 'EDGE'},
         body=json.dumps(swagger_doc, indent=2)).returns(
             {'id': 'rest_api_id'})
 
     stubbed_session.activate_stubs()
     awsclient = TypedAWSClient(stubbed_session)
-    rest_api_id = awsclient.import_rest_api(swagger_doc)
+    rest_api_id = awsclient.import_rest_api(swagger_doc, 'EDGE')
     stubbed_session.verify_stubs()
     assert rest_api_id == 'rest_api_id'
 
@@ -1349,7 +1350,6 @@ def test_update_api_from_swagger(stubbed_session):
     awsclient.update_api_from_swagger('rest_api_id', swagger_doc)
     stubbed_session.verify_stubs()
 
-
 def test_can_get_or_create_rule_arn_with_pattern(stubbed_session):
     events = stubbed_session.stub('events')
     events.put_rule(
@@ -1365,6 +1365,23 @@ def test_can_get_or_create_rule_arn_with_pattern(stubbed_session):
         event_pattern='{"source": ["aws.ec2"]}')
     stubbed_session.verify_stubs()
     assert result == 'rule-arn'
+
+
+def test_update_rest_api(stubbed_session):
+    apig = stubbed_session.stub('apigateway')
+    patch_operations = [{'op': 'replace',
+                         'path': '/minimumCompressionSize',
+                         'value': '2'}]
+    apig.update_rest_api(
+        restApiId='rest_api_id',
+        patchOperations=patch_operations).returns({})
+
+    stubbed_session.activate_stubs()
+    awsclient = TypedAWSClient(stubbed_session)
+
+    awsclient.update_rest_api('rest_api_id',
+                              patch_operations)
+    stubbed_session.verify_stubs()
 
 
 def test_can_get_or_create_rule_arn(stubbed_session):

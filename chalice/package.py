@@ -233,10 +233,16 @@ class SAMTemplateGenerator(TemplateGenerator):
         resources['RestAPI'] = {
             'Type': 'AWS::Serverless::Api',
             'Properties': {
+                'EndpointConfiguration': resource.endpoint_type,
                 'StageName': resource.api_gateway_stage,
                 'DefinitionBody': resource.swagger_doc,
             }
         }
+        if resource.minimum_compression:
+            properties = resources['RestAPI']['Properties']
+            properties['MinimumCompressionSize'] = \
+                int(resource.minimum_compression)
+
         handler_cfn_name = to_cfn_resource_name(
             resource.lambda_function.resource_name)
         api_handler = template['Resources'].pop(handler_cfn_name)

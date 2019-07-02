@@ -460,12 +460,13 @@ class TypedAWSClient(object):
         except client.exceptions.NotFoundException:
             return False
 
-    def import_rest_api(self, swagger_document):
-        # type: (Dict[str, Any]) -> str
+    def import_rest_api(self, swagger_document, endpoint_type):
+        # type: (Dict[str, Any], str) -> str
         client = self._client('apigateway')
-        response = client.import_rest_api(
-            body=json.dumps(swagger_document, indent=2)
-        )
+        params = {}  # type: Dict[str, Any]
+        params['body'] = json.dumps(swagger_document, indent=2)
+        params['parameters'] = {'endpointConfigurationTypes': endpoint_type}
+        response = client.import_rest_api(**params)
         rest_api_id = response['id']
         return rest_api_id
 
@@ -476,6 +477,14 @@ class TypedAWSClient(object):
             restApiId=rest_api_id,
             mode='overwrite',
             body=json.dumps(swagger_document, indent=2))
+
+    def update_rest_api(self, rest_api_id, patch_operations):
+        # type: (str, List[Dict]) -> None
+        client = self._client('apigateway')
+        client.update_rest_api(
+            restApiId=rest_api_id,
+            patchOperations=patch_operations
+        )
 
     def delete_rest_api(self, rest_api_id):
         # type: (str) -> None

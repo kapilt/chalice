@@ -2,8 +2,8 @@
 CHANGELOG
 =========
 
-Next Release (TBD)
-==================
+1.9.0
+=====
 
 * Update PIP to support up to 19.1.x
   (`#1104 <https://github.com/aws/chalice/issues/1104>`__)
@@ -19,6 +19,18 @@ Next Release (TBD)
   (`#1131 <https://github.com/aws/chalice/issues/1131>`__)
 * Add layer support to chalice package
   (`#1130 <https://github.com/aws/chalice/issues/1130>`__)
+* Fix bug with route ``name`` kwarg raising a ``TypeError``
+  (`#1112 <https://github.com/aws/chalice/issues/1112>`__)
+* Change exceptions to always be logged at the ERROR level
+  (`#969 <https://github.com/aws/chalice/issues/969>`__)
+* Fix bug handling exceptions during ``chalice invoke`` on
+  Python 3.7
+  (`#1139 <https://github.com/aws/chalice/issues/1139>`__)
+* Add support for API Gateway compression
+  (`#672 <https://github.com/aws/chalice/issues/672>`__)
+* Add support for both relative and absolute paths for
+  ``--package-dir``
+  (`#940 <https://github.com/aws/chalice/issues/940>`__)
 
 
 1.8.0

@@ -224,6 +224,17 @@ class Config(object):
                                   varies_per_chalice_stage=True)
 
     @property
+    def api_gateway_endpoint_type(self):
+        # type: () -> str
+        return self._chain_lookup('api_gateway_endpoint_type')
+
+    @property
+    def minimum_compression_size(self):
+        # type: () -> int
+        return self._chain_lookup('minimum_compression_size',
+                                  varies_per_chalice_stage=True)
+
+    @property
     def iam_policy_file(self):
         # type: () -> str
         return self._chain_lookup('iam_policy_file',
