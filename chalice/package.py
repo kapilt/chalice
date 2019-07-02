@@ -608,6 +608,9 @@ class TerraformGenerator(TemplateGenerator):
         swagger_doc = cast(Dict, resource.swagger_doc)
         template['resource'].setdefault('aws_api_gateway_rest_api', {})[
             resource.resource_name] = {
+                'endpoint_configuration': {
+                    'types': [resource.endpoint_type]
+                },
                 'body': json.dumps(swagger_doc),
                 # Terraform will diff explicitly configured attributes
                 # to the current state of the resource. Attributes configured
