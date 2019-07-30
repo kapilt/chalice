@@ -45,7 +45,7 @@ GITIGNORE = """\
 
 DEFAULT_STAGE_NAME = 'dev'
 DEFAULT_APIGATEWAY_STAGE_NAME = 'api'
-
+DEFAULT_ENDPOINT_TYPE = 'EDGE'
 
 DEFAULT_LAMBDA_TIMEOUT = 60
 DEFAULT_LAMBDA_MEMORY_SIZE = 128
@@ -239,4 +239,13 @@ SQS_EVENT_SOURCE_POLICY = {
         "sqs:GetQueueAttributes",
     ],
     "Resource": "*",
+}
+
+
+POST_TO_WEBSOCKET_CONNECTION_POLICY = {
+    "Effect": "Allow",
+    "Action": [
+        "execute-api:ManageConnections"
+    ],
+    "Resource": "arn:aws:execute-api:*:*:*/@connections/*"
 }

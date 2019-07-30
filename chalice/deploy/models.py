@@ -1,3 +1,4 @@
+# pylint: disable=line-too-long
 import enum
 from typing import List, Dict, Optional, Any, TypeVar, Union, Set  # noqa
 from typing import cast
@@ -43,6 +44,13 @@ class StoreValue(Instruction):
 @attrs(frozen=True)
 class CopyVariable(Instruction):
     from_var = attrib()  # type: str
+    to_var = attrib()    # type: str
+
+
+@attrs(frozen=True)
+class CopyVariableFromDict(Instruction):
+    from_var = attrib()  # type: str
+    key = attrib()       # type: str
     to_var = attrib()    # type: str
 
 
@@ -182,12 +190,36 @@ class RestAPI(ManagedModel):
     swagger_doc = attrib()                       # type: DV[Dict[str, Any]]
     minimum_compression = attrib()               # type: str
     api_gateway_stage = attrib()                 # type: str
+    endpoint_type = attrib()                     # type: str
     lambda_function = attrib()                   # type: LambdaFunction
+    policy = attrib(default=None)                # type: Optional[IAMPolicy]
     authorizers = attrib(default=Factory(list))  # type: List[LambdaFunction]
 
     def dependencies(self):
         # type: () -> List[Model]
         return cast(List[Model], [self.lambda_function] + self.authorizers)
+
+
+@attrs
+class WebsocketAPI(ManagedModel):
+    resource_type = 'websocket_api'
+    name = attrib()                  # type: str
+    api_gateway_stage = attrib()     # type: str
+    routes = attrib()                # type: List[str]
+    connect_function = attrib()      # type: Optional[LambdaFunction]
+    message_function = attrib()      # type: Optional[LambdaFunction]
+    disconnect_function = attrib()   # type: Optional[LambdaFunction]
+
+    def dependencies(self):
+        # type: () -> List[Model]
+        functions = []  # type: List[Model]
+        if self.connect_function is not None:
+            functions.append(self.connect_function)
+        if self.message_function is not None:
+            functions.append(self.message_function)
+        if self.disconnect_function is not None:
+            functions.append(self.disconnect_function)
+        return functions
 
 
 @attrs

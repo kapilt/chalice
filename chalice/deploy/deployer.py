@@ -81,7 +81,7 @@ is used as the key in the ``deployed.json`` dictionary.
 
 
 """
-
+# pylint: disable=too-many-lines
 import json
 import os
 import textwrap
@@ -108,6 +108,7 @@ from chalice.constants import DEFAULT_LAMBDA_TIMEOUT
 from chalice.constants import DEFAULT_LAMBDA_MEMORY_SIZE
 from chalice.constants import LAMBDA_TRUST_POLICY
 from chalice.constants import SQS_EVENT_SOURCE_POLICY
+from chalice.constants import POST_TO_WEBSOCKET_CONNECTION_POLICY
 from chalice.deploy import models
 from chalice.deploy.executor import Executor
 from chalice.deploy.packager import PipRunner
@@ -116,10 +117,10 @@ from chalice.deploy.packager import DependencyBuilder as PipDependencyBuilder
 from chalice.deploy.packager import LambdaDeploymentPackager
 from chalice.deploy.planner import PlanStage
 from chalice.deploy.planner import RemoteState
-from chalice.deploy.planner import ResourceSweeper
 from chalice.deploy.planner import NoopPlanner
 from chalice.deploy.swagger import TemplatedSwaggerGenerator
 from chalice.deploy.swagger import SwaggerGenerator  # noqa
+from chalice.deploy.sweeper import ResourceSweeper
 from chalice.deploy.validate import validate_configuration
 from chalice.policy import AppPolicyGenerator
 from chalice.utils import OSUtils
@@ -189,7 +190,6 @@ class ChaliceDeploymentError(Exception):
         # )
         message = connection_error.args[0].args[0]
         underlying_error = connection_error.args[0].args[1]
-
         if is_broken_pipe_error(underlying_error):
             message += (
                 ' Lambda closed the connection before chalice finished '
@@ -296,6 +296,7 @@ def create_build_stage(osutils, ui, swagger_gen):
                 swagger_generator=swagger_gen,
             ),
             LambdaEventSourcePolicyInjector(),
+            WebsocketPolicyInjector()
         ],
     )
     return build_stage
@@ -315,7 +316,6 @@ def create_deletion_deployer(client, ui):
 
 
 class Deployer(object):
-
     BACKEND_NAME = 'api'
 
     def __init__(self,
@@ -395,6 +395,10 @@ class ApplicationGraphBuilder(object):
             rest_api = self._create_rest_api_model(
                 config, deployment, stage_name)
             resources.append(rest_api)
+        if config.chalice_app.websocket_handlers:
+            websocket_api = self._create_websocket_api_model(
+                config, deployment, stage_name)
+            resources.append(websocket_api)
         return models.Application(stage_name, resources)
 
     def _create_lambda_event_resources(self, config, deployment, stage_name):
@@ -455,13 +459,85 @@ class ApplicationGraphBuilder(object):
                 handler_name=auth.handler_string, stage_name=stage_name,
             )
             authorizers.append(auth_lambda)
+
+        policy = None
+        policy_path = config.api_gateway_policy_file
+        if (config.api_gateway_endpoint_type == 'PRIVATE' and not policy_path):
+            policy = models.IAMPolicy(
+                document=self._get_default_private_api_policy(config))
+        elif policy_path:
+            policy = models.FileBasedIAMPolicy(
+                document=models.Placeholder.BUILD_STAGE,
+                filename=os.path.join(
+                    config.project_dir, '.chalice', policy_path))
+
         return models.RestAPI(
             resource_name='rest_api',
             swagger_doc=models.Placeholder.BUILD_STAGE,
+            endpoint_type=config.api_gateway_endpoint_type,
             minimum_compression=minimum_compression,
             api_gateway_stage=config.api_gateway_stage,
             lambda_function=lambda_function,
             authorizers=authorizers,
+            policy=policy
+        )
+
+    def _get_default_private_api_policy(self, config):
+        # type: (Config) -> Dict[str, Any]
+        statements = [{
+            "Effect": "Allow",
+            "Principal": "*",
+            "Action": "execute-api:Invoke",
+            "Resource": "arn:aws:execute-api:*:*:*",
+            "Condition": {
+                "StringEquals": {
+                    "aws:SourceVpce": config.api_gateway_endpoint_vpce
+                }
+            }
+        }]
+        return {"Version": "2012-10-17", "Statement": statements}
+
+    def _create_websocket_api_model(
+            self,
+            config,      # type: Config
+            deployment,  # type: models.DeploymentPackage
+            stage_name,  # type: str
+    ):
+        # type: (...) -> models.WebsocketAPI
+        connect_handler = None     # type: Optional[models.LambdaFunction]
+        message_handler = None     # type: Optional[models.LambdaFunction]
+        disconnect_handler = None  # type: Optional[models.LambdaFunction]
+
+        routes = {h.route_key_handled: h.handler_string for h
+                  in config.chalice_app.websocket_handlers.values()}
+        if '$connect' in routes:
+            connect_handler = self._create_lambda_model(
+                config=config, deployment=deployment, name='websocket_connect',
+                handler_name=routes['$connect'], stage_name=stage_name)
+            routes.pop('$connect')
+        if '$disconnect' in routes:
+            disconnect_handler = self._create_lambda_model(
+                config=config, deployment=deployment,
+                name='websocket_disconnect',
+                handler_name=routes['$disconnect'], stage_name=stage_name)
+            routes.pop('$disconnect')
+        if routes:
+            # If there are left over routes they are message handlers.
+            handler_string = list(routes.values())[0]
+            message_handler = self._create_lambda_model(
+                config=config, deployment=deployment, name='websocket_message',
+                handler_name=handler_string, stage_name=stage_name
+            )
+
+        return models.WebsocketAPI(
+            name='%s-%s-websocket-api' % (config.app_name, stage_name),
+            resource_name='websocket_api',
+            connect_function=connect_handler,
+            message_function=message_handler,
+            disconnect_function=disconnect_handler,
+            routes=[h.route_key_handled for h
+                    in config.chalice_app.websocket_handlers.values()],
+            api_gateway_stage=config.api_gateway_stage,
         )
 
     def _create_event_model(self,
@@ -736,7 +812,6 @@ class DependencyBuilder(object):
 
 
 class BaseDeployStep(object):
-
     def handle(self, config, resource):
         # type: (Config, models.Model) -> None
         name = 'handle_%s' % resource.__class__.__name__.lower()
@@ -769,8 +844,7 @@ class DeploymentPackager(BaseDeployStep):
         # type: (Config, models.DeploymentPackage) -> None
         if isinstance(resource.filename, models.Placeholder):
             zip_filename = self._packager.create_deployment_package(
-                config.project_dir, config.lambda_python_version
-            )
+                config.project_dir, config.lambda_python_version)
             resource.filename = zip_filename
 
 
@@ -782,7 +856,7 @@ class SwaggerBuilder(BaseDeployStep):
     def handle_restapi(self, config, resource):
         # type: (Config, models.RestAPI) -> None
         swagger_doc = self._swagger_generator.generate_swagger(
-            config.chalice_app)
+            config.chalice_app, resource)
         resource.swagger_doc = swagger_doc
 
 
@@ -807,6 +881,39 @@ class LambdaEventSourcePolicyInjector(BaseDeployStep):
             self._policy_injected = True
 
     def _inject_trigger_policy(self, document, policy):
+        # type: (Dict[str, Any], Dict[str, Any]) -> None
+        document['Statement'].append(policy)
+
+
+class WebsocketPolicyInjector(BaseDeployStep):
+    def __init__(self):
+        # type: () -> None
+        self._policy_injected = False
+
+    def handle_websocketapi(self, config, resource):
+        # type: (Config, models.WebsocketAPI) -> None
+        self._inject_into_function(config, resource.connect_function)
+        self._inject_into_function(config, resource.message_function)
+        self._inject_into_function(config, resource.disconnect_function)
+
+    def _inject_into_function(self, config, lambda_function):
+        # type: (Config, Optional[models.LambdaFunction]) -> None
+        if lambda_function is None:
+            return
+        role = lambda_function.role
+        if role is None:
+            return
+        if (not self._policy_injected and
+            isinstance(role, models.ManagedIAMRole) and
+            isinstance(role.policy, models.AutoGenIAMPolicy) and
+            not isinstance(role.policy.document,
+                           models.Placeholder)):
+            self._inject_policy(
+                role.policy.document,
+                POST_TO_WEBSOCKET_CONNECTION_POLICY.copy())
+        self._policy_injected = True
+
+    def _inject_policy(self, document, policy):
         # type: (Dict[str, Any], Dict[str, Any]) -> None
         document['Statement'].append(policy)
 
@@ -869,9 +976,10 @@ class ResultsRecorder(object):
 
 
 class DeploymentReporter(object):
-    # We want the Rest API to be displayed last.
+    # We want the API URLs to be displayed last.
     _SORT_ORDER = {
         'rest_api': 100,
+        'websocket_api': 100,
     }
     # The default is chosen to sort before the rest_api
     _DEFAULT_ORDERING = 50
@@ -897,15 +1005,16 @@ class DeploymentReporter(object):
 
     def _report_rest_api(self, resource, report):
         # type: (Dict[str, Any], List[str]) -> None
+        report.append('  - Rest API URL: %s' % resource['rest_api_url'])
+
+    def _report_websocket_api(self, resource, report):
+        # type: (Dict[str, Any], List[str]) -> None
         report.append(
-            '  - Rest API URL: %s' % resource['rest_api_url']
-        )
+            '  - Websocket API URL: %s' % resource['websocket_api_url'])
 
     def _report_lambda_function(self, resource, report):
         # type: (Dict[str, Any], List[str]) -> None
-        report.append(
-            '  - Lambda ARN: %s' % resource['lambda_arn']
-        )
+        report.append('  - Lambda ARN: %s' % resource['lambda_arn'])
 
     def _default_report(self, resource, report):
         # type: (Dict[str, Any], List[str]) -> None

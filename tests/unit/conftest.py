@@ -78,6 +78,25 @@ def sample_app_lambda_only():
 
 
 @fixture
+def sample_websocket_app():
+    app = Chalice('sample')
+
+    @app.on_ws_connect()
+    def foo():
+        pass
+
+    @app.on_ws_message()
+    def bar():
+        pass
+
+    @app.on_ws_disconnect()
+    def baz():
+        pass
+
+    return app
+
+
+@fixture
 def create_event():
     def create_event_inner(uri, method, path, content_type='application/json'):
         return {
@@ -92,6 +111,21 @@ def create_event():
             'multiValueQueryStringParameters': None,
             'body': "",
             'stageVariables': {},
+        }
+    return create_event_inner
+
+
+@fixture
+def create_websocket_event():
+    def create_event_inner(route_key, body=''):
+        return {
+            'requestContext': {
+                'routeKey': route_key,
+                'domainName': 'abcd1234.us-west-2.amazonaws.com',
+                'stage': 'api',
+                'connectionId': 'ABCD1234=',
+            },
+            'body': body,
         }
     return create_event_inner
 
