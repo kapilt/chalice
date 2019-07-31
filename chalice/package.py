@@ -335,7 +335,7 @@ class SAMTemplateGenerator(TemplateGenerator):
                         ('arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}'
                          ':${WebsocketAPIId}/*'),
                         {'WebsocketAPIId': api_ref},
-                    ]
+                    ],
                 },
             }
         }
@@ -648,7 +648,7 @@ class TerraformGenerator(TemplateGenerator):
                     "arn:aws:sqs:%(region)s:%(account_id)s:%(queue)s",
                     queue=resource.queue),
                 'batch_size': resource.batch_size,
-                'function_name': self._fref(resource.lambda_function),
+                'function_name': resource.lambda_function.function_name,
         }
 
     def _generate_snslambdasubscription(self, resource, template):

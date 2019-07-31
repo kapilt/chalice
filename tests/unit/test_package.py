@@ -236,6 +236,7 @@ class TestTerraformTemplate(TemplateTestBase):
     def test_can_generate_rest_api(self, sample_app_with_auth):
         config = Config.create(chalice_app=sample_app_with_auth,
                                project_dir='.',
+                               app_name='sample_app',
                                api_gateway_stage='api')
         template = self.generate_template(config, 'dev')
         resources = template['resource']
@@ -243,7 +244,7 @@ class TestTerraformTemplate(TemplateTestBase):
         assert resources['aws_lambda_function']
         # Along with permission to invoke from API Gateway.
         assert list(resources['aws_lambda_permission'].values())[0] == {
-            'function_name': '${aws_lambda_function.api_handler.arn}',
+            'function_name': 'sample_app-dev',
             'action': 'lambda:InvokeFunction',
             'principal': 'apigateway.amazonaws.com',
             'source_arn': (
@@ -256,7 +257,7 @@ class TestTerraformTemplate(TemplateTestBase):
         # Along with permission to invoke from API Gateway.
         assert resources['aws_lambda_permission']['myauth_invoke'] == {
             'action': 'lambda:InvokeFunction',
-            'function_name': '${aws_lambda_function.myauth.arn}',
+            'function_name': 'sample_app-dev-myauth',
             'principal': 'apigateway.amazonaws.com',
             'source_arn': (
                 '${aws_api_gateway_rest_api.myauth.execution_arn}/*/*/*')
@@ -280,13 +281,13 @@ class TestTerraformTemplate(TemplateTestBase):
 
         template = self.generate_template(config, 'dev')
         assert template['resource']['aws_s3_bucket_notification'][
-            'handler-s3event'] == {
+            'foo_notify'] == {
                 'bucket': 'foo',
-                'lambda_function': {
+                'lambda_function': [{
                     'events': ['s3:ObjectCreated:*'],
                     'lambda_function_arn': (
                         '${aws_lambda_function.handler.arn}')
-                }
+                }]
         }
 
     def test_can_package_s3_event_handler(self, sample_app):
@@ -297,28 +298,29 @@ class TestTerraformTemplate(TemplateTestBase):
 
         config = Config.create(chalice_app=sample_app,
                                project_dir='.',
+                               app_name='sample_app',
                                api_gateway_stage='api')
 
         template = self.generate_template(config, 'dev')
         assert template['resource']['aws_lambda_permission'][
             'handler-s3event'] == {
                 'action': 'lambda:InvokeFunction',
-                'function_name': '${aws_lambda_function.handler.arn}',
+                'function_name': 'sample_app-dev-handler',
                 'principal': 's3.amazonaws.com',
                 'source_arn': 'arn:aws:s3:::foo',
                 'statement_id': 'handler-s3event'
         }
 
         assert template['resource']['aws_s3_bucket_notification'][
-            'handler-s3event'] == {
+            'foo_notify'] == {
                 'bucket': 'foo',
-                'lambda_function': {
+                'lambda_function': [{
                     'events': ['s3:ObjectCreated:*'],
                     'filter_prefix': 'incoming',
                     'filter_suffix': '.csv',
                     'lambda_function_arn': (
                         '${aws_lambda_function.handler.arn}')
-                }
+                }]
         }
 
     def test_can_package_sns_handler(self, sample_app):
@@ -333,8 +335,9 @@ class TestTerraformTemplate(TemplateTestBase):
 
         assert template['resource']['aws_sns_topic_subscription'][
             'handler-sns-subscription'] == {
-                'topic_arn': ('arn:aws:sns:${aws_region.chalice.name}:'
-                              '${aws_caller_identity.chalice.account_id}:foo'),
+                'topic_arn': (
+                    'arn:aws:sns:${data.aws_region.chalice.name}:'
+                    '${data.aws_caller_identity.chalice.account_id}:foo'),
                 'protocol': 'lambda',
                 'endpoint': '${aws_lambda_function.handler.arn}'
         }
@@ -348,6 +351,7 @@ class TestTerraformTemplate(TemplateTestBase):
 
         config = Config.create(chalice_app=sample_app,
                                project_dir='.',
+                               app_name='sample_app',
                                api_gateway_stage='api')
         template = self.generate_template(config, 'dev')
 
@@ -360,7 +364,7 @@ class TestTerraformTemplate(TemplateTestBase):
 
         assert template['resource']['aws_lambda_permission'][
             'handler-sns-subscription'] == {
-                'function_name': '${aws_lambda_function.handler.arn}',
+                'function_name': 'sample_app-dev-handler',
                 'action': 'lambda:InvokeFunction',
                 'principal': 'sns.amazonaws.com',
                 'source_arn': 'arn:aws:sns:space-leo-1:1234567890:foo'
@@ -373,6 +377,7 @@ class TestTerraformTemplate(TemplateTestBase):
 
         config = Config.create(chalice_app=sample_app,
                                project_dir='.',
+                               app_name='sample_app',
                                api_gateway_stage='api')
         template = self.generate_template(config, 'dev')
 
@@ -380,9 +385,9 @@ class TestTerraformTemplate(TemplateTestBase):
             'aws_lambda_event_source_mapping'][
                 'handler-sqs-event-source'] == {
                     'event_source_arn': (
-                        'arn:aws:sqs:${aws_region.chalice.name}:'
-                        '${aws_caller_identity.chalice.account_id}:foo'),
-                    'function_name': '${aws_lambda_function.handler.arn}',
+                        'arn:aws:sqs:${data.aws_region.chalice.name}:'
+                        '${data.aws_caller_identity.chalice.account_id}:foo'),
+                    'function_name': 'sample_app-dev-handler',
                     'batch_size': 5
         }
 
