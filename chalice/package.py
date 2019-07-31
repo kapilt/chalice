@@ -570,6 +570,9 @@ class TerraformGenerator(TemplateGenerator):
             'terraform': {
                 'required_version': '> 0.11.0'
             },
+            'provider': {
+                'aws': {'version': '> 2.0.0'},
+            },
             'data': {
                 'aws_caller_identity': {'chalice': {}},
                 'aws_region': {'chalice': {}}
@@ -587,8 +590,8 @@ class TerraformGenerator(TemplateGenerator):
     def _arnref(self, arn_template, **kw):
         # type: (str, str) -> str
         d = dict(
-            region='${aws_region.chalice.name}',
-            account_id='${aws_caller_identity.chalice.account_id}')
+            region='${data.aws_region.chalice.name}',
+            account_id='${data.aws_caller_identity.chalice.account_id}')
         d.update(kw)
         return arn_template % d
 
@@ -620,17 +623,19 @@ class TerraformGenerator(TemplateGenerator):
         if resource.suffix:
             bnotify['filter_suffix'] = resource.suffix
 
-        template['resource'].setdefault('aws_s3_bucket_notification', {})[
-            resource.resource_name] = {
-                'bucket': resource.bucket,
-                'lambda_function': bnotify
-        }
+        # we use the bucket name here because we need to aggregate
+        # all the notifications subscribers for a bucket.
+        template['resource'].setdefault(
+            'aws_s3_bucket_notification', {}).setdefault(
+                resource.bucket + '_notify',
+                {'bucket': resource.bucket}).setdefault(
+                    'lambda_function', []).append(bnotify)
 
         template['resource'].setdefault('aws_lambda_permission', {})[
             resource.resource_name] = {
                 'statement_id': resource.resource_name,
                 'action': 'lambda:InvokeFunction',
-                'function_name': self._fref(resource.lambda_function),
+                'function_name': resource.lambda_function.function_name,
                 'principal': 's3.amazonaws.com',
                 'source_arn': 'arn:aws:s3:::%s' % resource.bucket
         }
@@ -664,8 +669,7 @@ class TerraformGenerator(TemplateGenerator):
         }
         template['resource'].setdefault('aws_lambda_permission', {})[
             resource.resource_name] = {
-                'function_name': self._fref(
-                    resource.lambda_function),
+                'function_name': resource.lambda_function.function_name,
                 'action': 'lambda:InvokeFunction',
                 'principal': 'sns.amazonaws.com',
                 'source_arn': topic_arn
@@ -691,7 +695,7 @@ class TerraformGenerator(TemplateGenerator):
         template['resource'].setdefault(
             'aws_lambda_permission', {})[
                 resource.resource_name] = {
-                    'function_name': self._fref(resource.lambda_function),
+                    'function_name': resource.lambda_function.function_name,
                     'action': 'lambda:InvokeFunction',
                     'principal': 'events.amazonaws.com',
                     'source_arn': "${aws_cloudwatch_event_rule.%s.arn}" % (
@@ -753,8 +757,21 @@ class TerraformGenerator(TemplateGenerator):
                 # terraform will set them back to empty.
                 'name': swagger_doc['info']['title'],
                 'binary_media_types': swagger_doc[
-                    'x-amazon-apigateway-binary-media-types']
+                    'x-amazon-apigateway-binary-media-types'],
+                'endpoint_configuration': {'types': [resource.endpoint_type]}
         }
+
+        if 'x-amazon-apigateway-policy' in swagger_doc:
+            template['resource'][
+                'aws_api_gateway_rest_api'][
+                    resource.resource_name]['policy'] = swagger_doc[
+                        'x-amazon-apigateway-policy']
+        if resource.minimum_compression.isdigit():
+            template['resource'][
+                'aws_api_gateway_rest_api'][
+                    resource.resource_name][
+                        'minimum_compression_size'] = (
+                            resource.minimum_compression)
 
         template['resource'].setdefault('aws_api_gateway_stage', {})[
             resource.resource_name] = {
@@ -773,7 +790,7 @@ class TerraformGenerator(TemplateGenerator):
 
         template['resource'].setdefault('aws_lambda_permission', {})[
             resource.resource_name + '_invoke'] = {
-                'function_name': self._fref(resource.lambda_function),
+                'function_name': resource.lambda_function.function_name,
                 'action': 'lambda:InvokeFunction',
                 'principal': 'apigateway.amazonaws.com',
                 'source_arn':
@@ -790,7 +807,7 @@ class TerraformGenerator(TemplateGenerator):
         for auth in resource.authorizers:
             template['resource']['aws_lambda_permission'][
                 auth.resource_name + '_invoke'] = {
-                    'function_name': self._fref(auth),
+                    'function_name': auth.function_name,
                     'action': 'lambda:InvokeFunction',
                     'principal': 'apigateway.amazonaws.com',
                     'source_arn': (

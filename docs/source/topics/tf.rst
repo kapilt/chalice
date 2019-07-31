@@ -51,10 +51,9 @@ First install the necessary packages::
     $ cd test-tf-deploy
 
 At this point we've installed chalice and the AWS CLI and we have
-a basic app created locally.  Next we'll run the ``package`` command
-and look at its contents::
+a basic app created locally.  Next we'll run the ``package`` command::
 
-    $ $ chalice package --pkg-format terraform /tmp/packaged-app/
+    $ chalice package --pkg-format terraform /tmp/packaged-app/
     Creating deployment package.
     $ ls -la /tmp/packaged-app/
     -rw-r--r--   1 j         wheel  3355270 May 25 14:20 deployment.zip
@@ -67,24 +66,19 @@ and look at its contents::
      --------                   -------
       9826899                   723 files
 
-    $ head < /tmp/packaged-app/chalice.tf.json
-    {
-      "resource": {
-        "aws_lambda_function": {
-           "function_name": "radical-dev-sfn_origin",
-        "runtime": "python3.7",
-
 
 As you can see in the above example, the ``package --pkg-format``
 command created a directory that contained two files, a
 ``deployment.zip`` file, which is the Lambda deployment package, and a
 ``chalice.tf.json`` file, which is the Terraform template that can be
 deployed using Terraform.  Next we're going to use the Terraform CLI
-to deploy our app.
+to deploy our app. Note terraform will deploy run against all terraform
+files in this directory, so we can add additional resources for our
+application by adding terraform additional files here.
 
 First let's run Terraform init to install the AWS Terraform Provider::
 
-    $ cd /tmp-packaged-app
+    $ cd /tmp/packaged-app
     $ terraform init
 
 Now we can deploy our app using the ``terraform apply`` command::
@@ -117,7 +111,7 @@ Now we can deploy our app using the ``terraform apply`` command::
 This will take a minute to complete, but once it's done, the endpoint url
 will be available as an output which we can then curl::
 
-    $ http "https://7bnxriulj5.execute-api.us-east-1.amazonaws.com/dev"
+    $ http "$(terraform output EndpointURL)"
     HTTP/1.1 200 OK
     Connection: keep-alive
     Content-Length: 18
