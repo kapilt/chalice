@@ -566,8 +566,7 @@ def test_will_default_to_function_name_for_auth(sample_app):
     }
 
 
-def test_can_custom_resource_policy_with_cfn(sample_app):
-    swagger_gen = CFNSwaggerGenerator()
+def test_can_custom_resource_policy(sample_app, swagger_gen):
     rest_api = RestAPI(
         resource_name='dev',
         swagger_doc={},

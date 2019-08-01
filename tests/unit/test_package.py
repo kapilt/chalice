@@ -156,6 +156,11 @@ class TestTerraformTemplate(TemplateTestBase):
                     'info': {'title': 'some-app'},
                     'x-amazon-apigateway-binary-media-types': []
                 }
+            if (isinstance(r, models.RestAPI) and
+                    config.api_gateway_endpoint_type == 'PRIVATE'):
+                r.swagger_doc['x-amazon-apigateway-policy'] = (
+                    r.policy.document)
+
             # Same for iam policies on roles
             elif isinstance(r, models.FileBasedIAMPolicy):
                 r.document = self.EmptyPolicy
@@ -236,6 +241,9 @@ class TestTerraformTemplate(TemplateTestBase):
     def test_can_generate_rest_api(self, sample_app_with_auth):
         config = Config.create(chalice_app=sample_app_with_auth,
                                project_dir='.',
+                               minimum_compression_size=8192,
+                               api_gateway_endpoint_type='PRIVATE',
+                               api_gateway_endpoint_vpce='vpce-abc123',
                                app_name='sample_app',
                                api_gateway_stage='api')
         template = self.generate_template(config, 'dev')
@@ -251,6 +259,13 @@ class TestTerraformTemplate(TemplateTestBase):
                 '${aws_api_gateway_rest_api.rest_api.execution_arn}/*/*/*')
         }
         assert resources['aws_api_gateway_rest_api']
+        assert resources['aws_api_gateway_rest_api'][
+            'rest_api']['policy']
+        assert resources['aws_api_gateway_rest_api'][
+            'rest_api']['minimum_compression_size'] == 8192
+        assert resources['aws_api_gateway_rest_api'][
+            'rest_api']['endpoint_configuration'] == {'types': ['PRIVATE']}
+
         # We should also create the auth lambda function.
         assert 'myauth' in resources['aws_lambda_function']
 

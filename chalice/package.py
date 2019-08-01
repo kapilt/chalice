@@ -770,7 +770,7 @@ class TerraformGenerator(TemplateGenerator):
             template['resource'][
                 'aws_api_gateway_rest_api'][
                     resource.resource_name][
-                        'minimum_compression_size'] = (
+                        'minimum_compression_size'] = int(
                             resource.minimum_compression)
 
         template['resource'].setdefault('aws_api_gateway_stage', {})[
