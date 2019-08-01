@@ -625,9 +625,15 @@ class TerraformGenerator(TemplateGenerator):
 
         # we use the bucket name here because we need to aggregate
         # all the notifications subscribers for a bucket.
+        # Due to cyclic references to buckets created in terraform
+        # we also try to detect and resolve.
+        if '{aws_s3_bucket.' in resource.bucket:
+            bucket_name = resource.bucket.split('.')[1]
+        else:
+            bucket_name = resource.bucket
         template['resource'].setdefault(
             'aws_s3_bucket_notification', {}).setdefault(
-                resource.bucket + '_notify',
+                bucket_name + '_notify',
                 {'bucket': resource.bucket}).setdefault(
                     'lambda_function', []).append(bnotify)
 

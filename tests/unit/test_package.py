@@ -285,6 +285,27 @@ class TestTerraformTemplate(TemplateTestBase):
                 'value': '${aws_api_gateway_stage.rest_api.invoke_url}'}
         }
 
+    def test_can_package_s3_event_handler_with_tf_ref(self, sample_app):
+        @sample_app.on_s3_event(
+            bucket='${aws_s3_bucket.my_data_bucket.id}')
+        def handler(event):
+            pass
+
+        config = Config.create(chalice_app=sample_app,
+                               project_dir='.',
+                               api_gateway_stage='api')
+
+        template = self.generate_template(config, 'dev')
+        assert template['resource']['aws_s3_bucket_notification'][
+            'my_data_bucket_notify'] == {
+                'bucket': '${aws_s3_bucket.my_data_bucket.id}',
+                'lambda_function': [{
+                    'events': ['s3:ObjectCreated:*'],
+                    'lambda_function_arn': (
+                        '${aws_lambda_function.handler.arn}')
+                }]
+        }
+
     def test_can_package_s3_event_handler_sans_filters(self, sample_app):
         @sample_app.on_s3_event(bucket='foo')
         def handler(event):
