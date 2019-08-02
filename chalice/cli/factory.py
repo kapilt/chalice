@@ -179,9 +179,10 @@ class CLIFactory(object):
         except ValueError:
             raise UnknownConfigFileVersion(string_version)
 
-    def create_app_packager(self, config, package_format):
-        # type: (Config, str) -> AppPackager
-        return create_app_packager(config, package_format)
+    def create_app_packager(self, config, package_format, merge_template=None):
+        # type: (Config, str, OptStr) -> AppPackager
+        return create_app_packager(
+            config, package_format, merge_template=merge_template)
 
     def create_log_retriever(self, session, lambda_arn):
         # type: (Session, str) -> LogRetriever

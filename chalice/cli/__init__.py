@@ -379,13 +379,19 @@ def generate_sdk(ctx, sdk_type, stage, outdir):
 @click.option('--stage', default=DEFAULT_STAGE_NAME)
 @click.option('--pkg-format', default='cloudformation',
               type=click.Choice(['cloudformation', 'terraform']))
+@click.option('--merge-template',
+              help=('Specify a JSON template to be merged '
+                    'into the generated template. This is useful '
+                    'for adding resources to a Chalice template or '
+                    'modify values in the template.'))
 @click.argument('out')
 @click.pass_context
-def package(ctx, single_file, stage, out, pkg_format='cloudformation'):
+def package(ctx, single_file, stage, merge_template,
+            out, pkg_format='cloudformation'):
     # type: (click.Context, bool, str, str, str) -> None
     factory = ctx.obj['factory']  # type: CLIFactory
     config = factory.create_config_obj(stage)
-    packager = factory.create_app_packager(config, pkg_format)
+    packager = factory.create_app_packager(config, pkg_format, merge_template)
     if single_file:
         dirname = tempfile.mkdtemp()
         try:

@@ -2,7 +2,7 @@ import json
 import os
 import copy
 
-from typing import Any, Dict, List, Set, Union  # noqa
+from typing import Any, Optional, Dict, List, Set, Union  # noqa
 from typing import cast
 
 from chalice.deploy.swagger import (
@@ -16,25 +16,32 @@ from chalice.deploy.deployer import BuildStage  # noqa
 from chalice.deploy.deployer import create_build_stage
 
 
-def create_app_packager(config, package_format='cloudformation'):
-    # type: (Config, str) -> AppPackager
+def create_app_packager(
+        config, package_format='cloudformation', merge_template=None):
+    # type: (Config, str, Optional[str]) -> AppPackager
     osutils = OSUtils()
     ui = UI()
     application_builder = ApplicationGraphBuilder()
     deps_builder = DependencyBuilder()
-    post_processor = None  # type: Union[None, TemplatePostProcessor]
+    post_processors = []  # type: List[TemplatePostProcessor]
     generator = None  # type: Union[None, TemplateGenerator]
 
     if package_format == 'cloudformation':
         build_stage = create_build_stage(
             osutils, ui, CFNSwaggerGenerator())
-        post_processor = SAMPostProcessor(osutils=osutils)
+        post_processors.extend([
+            SAMCodeLocationPostProcessor(osutils=osutils),
+            TemplateMergePostProcessor(
+                osutils=osutils,
+                merger=TemplateDeepMerger(),
+                merge_template=merge_template)])
         generator = SAMTemplateGenerator()
     else:
         build_stage = create_build_stage(
             osutils, ui, TerraformSwaggerGenerator())
         generator = TerraformGenerator()
-        post_processor = TerraformPostProcessor(osutils=osutils)
+        post_processors.append(
+            TerraformCodeLocationPostProcessor(osutils=osutils))
 
     resource_builder = ResourceBuilder(
         application_builder, deps_builder, build_stage)
@@ -42,7 +49,7 @@ def create_app_packager(config, package_format='cloudformation'):
     return AppPackager(
         generator,
         resource_builder,
-        post_processor,
+        CompositePostProcessor(post_processors),
         osutils)
 
 
@@ -879,7 +886,7 @@ class TemplatePostProcessor(object):
         raise NotImplementedError()
 
 
-class SAMPostProcessor(TemplatePostProcessor):
+class SAMCodeLocationPostProcessor(TemplatePostProcessor):
 
     def process(self, template, config, outdir, chalice_stage_name):
         # type: (Dict[str, Any], Config, str, str) -> None
@@ -905,7 +912,7 @@ class SAMPostProcessor(TemplatePostProcessor):
             resource['Properties']['CodeUri'] = './deployment.zip'
 
 
-class TerraformPostProcessor(TemplatePostProcessor):
+class TerraformCodeLocationPostProcessor(TemplatePostProcessor):
 
     def process(self, template, config, outdir, chalice_stage_name):
         # type: (Dict[str, Any], Config, str, str) -> None
@@ -918,3 +925,71 @@ class TerraformPostProcessor(TemplatePostProcessor):
                 copied = True
             r['filename'] = "./deployment.zip"
             r['source_code_hash'] = '${filebase64sha256("./deployment.zip")}'
+
+
+class TemplateMergePostProcessor(TemplatePostProcessor):
+    def __init__(self, osutils, merger, merge_template=None):
+        # type: (OSUtils, TemplateMerger, Optional[str]) -> None
+        super(TemplateMergePostProcessor, self).__init__(osutils)
+        self._merger = merger
+        self._merge_template = merge_template
+
+    def process(self, template, config, outdir, chalice_stage_name):
+        # type: (Dict[str, Any], Config, str, str) -> None
+        if self._merge_template is None:
+            return
+        loaded_template = self._load_template_to_merge()
+        merged = self._merger.merge(loaded_template, template)
+        template.clear()
+        template.update(merged)
+
+    def _load_template_to_merge(self):
+        # type: () -> Dict[str, Any]
+        template_name = cast(str, self._merge_template)
+        filepath = os.path.abspath(template_name)
+        if not self._osutils.file_exists(filepath):
+            raise RuntimeError('Cannot find template file: %s' % filepath)
+        template_data = self._osutils.get_file_contents(filepath, binary=False)
+        try:
+            loaded_template = json.loads(template_data)
+        except ValueError:
+            raise RuntimeError(
+                'Expected %s to be valid JSON template.' % filepath)
+        return loaded_template
+
+
+class CompositePostProcessor(TemplatePostProcessor):
+    def __init__(self, processors):
+        # type: (List[TemplatePostProcessor]) -> None
+        self._processors = processors
+
+    def process(self, template, config, outdir, chalice_stage_name):
+        # type: (Dict[str, Any], Config, str, str) -> None
+        for processor in self._processors:
+            processor.process(template, config, outdir, chalice_stage_name)
+
+
+class TemplateMerger(object):
+    def merge(self, file_template, chalice_template):
+        # type: (Dict[str, Any], Dict[str, Any]) -> Dict[str, Any]
+        raise NotImplementedError('merge')
+
+
+class TemplateDeepMerger(TemplateMerger):
+    def merge(self, file_template, chalice_template):
+        # type: (Dict[str, Any], Dict[str, Any]) -> Dict[str, Any]
+        return self._merge(file_template, chalice_template)
+
+    def _merge(self, file_template, chalice_template):
+        # type: (Any, Any) -> Any
+        if isinstance(file_template, dict) and \
+           isinstance(chalice_template, dict):
+            return self._merge_dict(file_template, chalice_template)
+        return file_template
+
+    def _merge_dict(self, file_template, chalice_template):
+        # type: (Dict[str, Any], Dict[str, Any]) -> Dict[str, Any]
+        merged = chalice_template.copy()
+        for key, value in file_template.items():
+            merged[key] = self._merge(value, chalice_template.get(key))
+        return merged
