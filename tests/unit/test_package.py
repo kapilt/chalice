@@ -427,6 +427,19 @@ class TestTerraformTemplate(TemplateTestBase):
                     'batch_size': 5
         }
 
+    def test_package_websocket_with_error_message(self, sample_websocket_app):
+        config = Config.create(chalice_app=sample_websocket_app,
+                               project_dir='.',
+                               app_name='sample_app',
+                               api_gateway_stage='api')
+        with pytest.raises(NotImplementedError) as excinfo:
+            self.generate_template(config, 'dev')
+
+        # Should mention the decorator name.
+        assert 'Websocket decorators' in str(excinfo.value)
+        # Should mention you can use `chalice deploy`.
+        assert 'chalice deploy' in str(excinfo.value)
+
 
 class TestSAMTemplate(TemplateTestBase):
 

@@ -610,6 +610,18 @@ class TerraformGenerator(TemplateGenerator):
                 'role': '${aws_iam_role.%s.id}' % resource.resource_name,
         }
 
+    def _generate_websocketapi(self, resource, template):
+        # type: (models.WebsocketAPI, Dict[str, Any]) -> None
+
+        message = (
+            "Unable to package chalice apps that use experimental "
+            "Websocket decorators. Terraform AWS Provider "
+            "support for websocket is pending see "
+            "https://git.io/fj9X8 for details and progress. "
+            "You can deploy this app using `chalice deploy`."
+        )
+        raise NotImplementedError(message)
+
     def _generate_s3bucketnotification(self, resource, template):
         # type: (models.S3BucketNotification, Dict[str, Any]) -> None
 
