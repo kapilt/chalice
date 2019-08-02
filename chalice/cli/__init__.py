@@ -387,8 +387,8 @@ def generate_sdk(ctx, sdk_type, stage, outdir):
 @click.argument('out')
 @click.pass_context
 def package(ctx, single_file, stage, merge_template,
-            out, pkg_format='cloudformation'):
-    # type: (click.Context, bool, str, str, str) -> None
+            out, pkg_format):
+    # type: (click.Context, bool, str, str, str, str) -> None
     factory = ctx.obj['factory']  # type: CLIFactory
     config = factory.create_config_obj(stage)
     packager = factory.create_app_packager(config, pkg_format, merge_template)
