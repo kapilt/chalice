@@ -393,7 +393,7 @@ class TestTerraformTemplate(TemplateTestBase):
             'function_name': 'sample_app-dev-myauth',
             'principal': 'apigateway.amazonaws.com',
             'source_arn': (
-                '${aws_api_gateway_rest_api.myauth.execution_arn}/*')
+                '${aws_api_gateway_rest_api.rest_api.execution_arn}/*')
         }
 
         # Also verify we add the expected outputs when using

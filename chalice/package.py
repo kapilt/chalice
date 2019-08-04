@@ -836,7 +836,7 @@ class TerraformGenerator(TemplateGenerator):
                     'principal': 'apigateway.amazonaws.com',
                     'source_arn': (
                         "${aws_api_gateway_rest_api.%s.execution_arn}" % (
-                            auth.resource_name) + "/*")
+                            resource.resource_name) + "/*")
             }
 
 
