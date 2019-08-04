@@ -773,9 +773,14 @@ class TerraformGenerator(TemplateGenerator):
 
         # typechecker happiness
         swagger_doc = cast(Dict, resource.swagger_doc)
+        template['data'].setdefault(
+            'template_file', {}).setdefault(
+                'chalice_api_swagger', {})['template'] = json.dumps(
+                    swagger_doc)
+
         template['resource'].setdefault('aws_api_gateway_rest_api', {})[
             resource.resource_name] = {
-                'body': json.dumps(swagger_doc),
+                'body': '${data.template_file.chalice_api_swagger.rendered}',
                 # Terraform will diff explicitly configured attributes
                 # to the current state of the resource. Attributes configured
                 # via swagger on the REST api need to be duplicated here, else
@@ -798,17 +803,11 @@ class TerraformGenerator(TemplateGenerator):
                         'minimum_compression_size'] = int(
                             resource.minimum_compression)
 
-        template['resource'].setdefault('aws_api_gateway_stage', {})[
-            resource.resource_name] = {
-                'rest_api_id': '${aws_api_gateway_rest_api.%s.id}' % (
-                    resource.resource_name),
-                'stage_name': resource.api_gateway_stage,
-                'deployment_id': '${aws_api_gateway_deployment.%s.id}' % (
-                    resource.resource_name)
-        }
-
         template['resource'].setdefault('aws_api_gateway_deployment', {})[
             resource.resource_name] = {
+                'stage_name': resource.api_gateway_stage,
+                'stage_description': (
+                    "${md5(data.template_file.chalice_api_swagger.rendered)}"),
                 'rest_api_id': '${aws_api_gateway_rest_api.%s.id}' % (
                     resource.resource_name),
         }
@@ -819,13 +818,13 @@ class TerraformGenerator(TemplateGenerator):
                 'action': 'lambda:InvokeFunction',
                 'principal': 'apigateway.amazonaws.com',
                 'source_arn':
-                    "${aws_api_gateway_rest_api.%s.execution_arn}/*/*/*" % (
+                    "${aws_api_gateway_rest_api.%s.execution_arn}/*" % (
                         resource.resource_name)
         }
 
         template.setdefault('output', {})[
             'EndpointURL'] = {
-                'value': '${aws_api_gateway_stage.%s.invoke_url}' % (
+                'value': '${aws_api_gateway_deployment.%s.invoke_url}' % (
                     resource.resource_name)
         }
 
@@ -837,7 +836,7 @@ class TerraformGenerator(TemplateGenerator):
                     'principal': 'apigateway.amazonaws.com',
                     'source_arn': (
                         "${aws_api_gateway_rest_api.%s.execution_arn}" % (
-                            auth.resource_name) + "/*/*/*")
+                            auth.resource_name) + "/*")
             }
 
 

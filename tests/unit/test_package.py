@@ -374,7 +374,7 @@ class TestTerraformTemplate(TemplateTestBase):
             'action': 'lambda:InvokeFunction',
             'principal': 'apigateway.amazonaws.com',
             'source_arn': (
-                '${aws_api_gateway_rest_api.rest_api.execution_arn}/*/*/*')
+                '${aws_api_gateway_rest_api.rest_api.execution_arn}/*')
         }
         assert resources['aws_api_gateway_rest_api']
         assert resources['aws_api_gateway_rest_api'][
@@ -393,14 +393,14 @@ class TestTerraformTemplate(TemplateTestBase):
             'function_name': 'sample_app-dev-myauth',
             'principal': 'apigateway.amazonaws.com',
             'source_arn': (
-                '${aws_api_gateway_rest_api.myauth.execution_arn}/*/*/*')
+                '${aws_api_gateway_rest_api.myauth.execution_arn}/*')
         }
 
         # Also verify we add the expected outputs when using
         # a Rest API.
         assert template['output'] == {
             'EndpointURL': {
-                'value': '${aws_api_gateway_stage.rest_api.invoke_url}'}
+                'value': '${aws_api_gateway_deployment.rest_api.invoke_url}'}
         }
 
     def test_can_package_s3_event_handler_with_tf_ref(self, sample_app):
