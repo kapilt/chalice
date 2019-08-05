@@ -597,6 +597,8 @@ class TerraformGenerator(TemplateGenerator):
             },
             'provider': {
                 'aws': {'version': '> 2.0.0'},
+                'local': {'version': '> 1.0'},
+                'template': {'version': '> 2.0'},
             },
             'data': {
                 'aws_caller_identity': {'chalice': {}},
@@ -606,6 +608,8 @@ class TerraformGenerator(TemplateGenerator):
 
         for resource in resources:
             self.dispatch(resource, template)
+        if self._config.project_dir:
+            self._generate_deployed_resources(template)
         return template
 
     def _fref(self, lambda_function, attr='arn'):
@@ -620,6 +624,37 @@ class TerraformGenerator(TemplateGenerator):
             account_id='${data.aws_caller_identity.chalice.account_id}')
         d.update(kw)
         return arn_template % d
+
+    def _generate_deployed_resources(self, template):
+        # type: (Dict[str, Any]) -> None
+        # Create enough deployment resource output for the chalice
+        # cli subcommands to work (invoke, logs, url).
+        resources = []
+        for k in template['resource']['aws_lambda_function'].keys():
+            resources.append({
+                'name': k,
+                'resource_type': 'lambda_function',
+                'lambda_arn': (
+                    '${aws_lambda_function.%s.arn}' % k)
+            })
+        resources.append({
+            'name': 'rest_api',
+            'resource_type': 'rest_api',
+            'rest_api_id': '${aws_api_gateway_rest_api.rest_api.id}',
+            'rest_api_url': (
+                '${aws_api_gateway_deployment.rest_api.invoke_url}')
+        })
+        template['resource'].setdefault(
+            'local_file', {})['chalice_deployed_resources'] = {
+            'filename': os.path.join(
+                self._config.project_dir, '.chalice', 'deployed',
+                '%s.json' % self._config.chalice_stage),
+            # not really sensitive but avoid dumping diffs
+            'sensitive_content': json.dumps({
+                'schema_version': '2.0',
+                'backend': 'terraform',
+                'resources': resources})
+        }
 
     def _generate_managediamrole(self, resource, template):
         # type: (models.ManagedIAMRole, Dict[str, Any]) -> None

@@ -411,6 +411,32 @@ class TestTerraformTemplate(TemplateTestBase):
                 'value': '${aws_api_gateway_deployment.rest_api.invoke_url}'}
         }
 
+    def test_can_generate_chalice_deployed_resources(self, sample_app):
+        config = Config.create(chalice_app=sample_app,
+                               project_dir='.',
+                               app_name='foo',
+                               api_gateway_stage='api')
+        template = self.generate_template(config, 'dev')
+        assert template['resource'][
+            'local_file'][
+                'chalice_deployed_resources'][
+                    'filename'] == "./.chalice/deployed/dev.json"
+        assert json.loads(template['resource']['local_file'][
+            'chalice_deployed_resources']['sensitive_content']) == {
+                'backend': 'terraform',
+                'schema_version': '2.0',
+                'resources': [
+                    {'lambda_arn': '${aws_lambda_function.api_handler.arn}',
+                     'name': 'api_handler',
+                     'resource_type': 'lambda_function'},
+                    {'name': 'rest_api',
+                     'resource_type': 'rest_api',
+                     'rest_api_id': '${aws_api_gateway_rest_api.rest_api.id}',
+                     'rest_api_url': (
+                         '${aws_api_gateway_deployment.rest_api.invoke_url}')}
+                    ]
+            }
+
     def test_can_package_s3_event_handler_with_tf_ref(self, sample_app):
         @sample_app.on_s3_event(
             bucket='${aws_s3_bucket.my_data_bucket.id}')
