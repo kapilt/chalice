@@ -9,7 +9,7 @@ command.
 
 When you run this command, chalice will generate the AWS Lambda
 deployment package that contains your application and a `Terraform
-<https://terraform.io>`__ configuration file. You can then use the
+<https://www.terraform.io>`__ configuration file. You can then use the
 terraform cli to deploy your chalice application.
 
 Considerations
