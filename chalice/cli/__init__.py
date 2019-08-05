@@ -368,6 +368,14 @@ def generate_sdk(ctx, sdk_type, stage, outdir):
 
 
 @cli.command('package')
+@click.option('--pkg-format', default='cloudformation',
+              help=('Specify the provisioning engine to use for '
+                    'template output. Chalice supports both '
+                    'CloudFormation and Terraform. Default '
+                    'is CloudFormation.'),
+              type=click.Choice(['cloudformation', 'terraform']))
+@click.option('--stage', default=DEFAULT_STAGE_NAME,
+              help="Chalice Stage to package.")
 @click.option('--single-file', is_flag=True,
               default=False,
               help=("Create a single packaged file. "
@@ -375,15 +383,12 @@ def generate_sdk(ctx, sdk_type, stage, outdir):
                     "specifies a directory in which the "
                     "package assets will be placed.  If "
                     "this argument is specified, a single "
-                    "zip file will be created instead."))
-@click.option('--stage', default=DEFAULT_STAGE_NAME)
-@click.option('--pkg-format', default='cloudformation',
-              type=click.Choice(['cloudformation', 'terraform']))
+                    "zip file will be created instead. CloudFormation Only."))
 @click.option('--merge-template',
               help=('Specify a JSON template to be merged '
                     'into the generated template. This is useful '
                     'for adding resources to a Chalice template or '
-                    'modify values in the template.'))
+                    'modify values in the template. CloudFormation Only.'))
 @click.argument('out')
 @click.pass_context
 def package(ctx, single_file, stage, merge_template,

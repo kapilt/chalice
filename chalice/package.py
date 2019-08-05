@@ -1,3 +1,4 @@
+# pylint: disable=too-many-lines
 import json
 import os
 import copy
@@ -35,11 +36,11 @@ def create_app_packager(
                 osutils=osutils,
                 merger=TemplateDeepMerger(),
                 merge_template=merge_template)])
-        generator = SAMTemplateGenerator()
+        generator = SAMTemplateGenerator(config)
     else:
         build_stage = create_build_stage(
             osutils, ui, TerraformSwaggerGenerator())
-        generator = TerraformGenerator()
+        generator = TerraformGenerator(config)
         post_processors.append(
             TerraformCodeLocationPostProcessor(osutils=osutils))
 
@@ -85,6 +86,10 @@ class TemplateGenerator(object):
 
     template_file = None  # type: str
 
+    def __init__(self, config):
+        # type: (Config) -> None
+        self._config = config
+
     def dispatch(self, resource, template):
         # type: (models.Model, Dict[str, Any]) -> None
         name = '_generate_%s' % resource.__class__.__name__.lower()
@@ -127,8 +132,9 @@ class SAMTemplateGenerator(TemplateGenerator):
 
     template_file = "sam.json"
 
-    def __init__(self):
-        # type: () -> None
+    def __init__(self, config):
+        # type: (Config) -> None
+        super(SAMTemplateGenerator, self).__init__(config)
         self._seen_names = set([])  # type: Set[str]
 
     def generate(self, resources):
@@ -577,6 +583,18 @@ class TerraformGenerator(TemplateGenerator):
             'terraform': {
                 'required_version': '> 0.11.0'
             },
+            'variable': {
+                'chalice_app_name': {
+                    'type': 'string',
+                    'description': 'Chalice App Name (not editable)',
+                    'default': self._config.app_name
+                },
+                'chalice_stage_name': {
+                    'type': 'string',
+                    'description': 'Chalice Stage (not editable)',
+                    'default': self._config.chalice_stage,
+                }
+            },
             'provider': {
                 'aws': {'version': '> 2.0.0'},
             },
@@ -585,6 +603,7 @@ class TerraformGenerator(TemplateGenerator):
                 'aws_region': {'chalice': {}}
             }
         }
+
         for resource in resources:
             self.dispatch(resource, template)
         return template
@@ -806,6 +825,9 @@ class TerraformGenerator(TemplateGenerator):
         template['resource'].setdefault('aws_api_gateway_deployment', {})[
             resource.resource_name] = {
                 'stage_name': resource.api_gateway_stage,
+                # Ensure that the deployment gets redeployed if we update
+                # the swagger description for the api by using its checksum
+                # in the stage description.
                 'stage_description': (
                     "${md5(data.template_file.chalice_api_swagger.rendered)}"),
                 'rest_api_id': '${aws_api_gateway_rest_api.%s.id}' % (

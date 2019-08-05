@@ -72,9 +72,14 @@ command created a directory that contained two files, a
 ``deployment.zip`` file, which is the Lambda deployment package, and a
 ``chalice.tf.json`` file, which is the Terraform template that can be
 deployed using Terraform.  Next we're going to use the Terraform CLI
-to deploy our app. Note terraform will deploy run against all terraform
-files in this directory, so we can add additional resources for our
-application by adding terraform additional files here.
+to deploy our app.
+
+Note terraform will deploy run against all terraform files in this
+directory, so we can add additional resources for our application by
+adding terraform additional files here. The Chalice terraform template
+includes two variables that we can optionally use when constructing
+these additional resources `chalice_stage_name` and
+`chalice_app_name`, these variables should **not** be user overridden.
 
 First let's run Terraform init to install the AWS Terraform Provider::
 

@@ -87,7 +87,7 @@ def test_terraform_post_processor_moves_files_once():
 
 
 def test_template_generator_default():
-    tgen = package.TemplateGenerator()
+    tgen = package.TemplateGenerator(Config())
 
     with pytest.raises(package.UnsupportedFeatureError):
         tgen.dispatch(models.Model(), {})
@@ -220,12 +220,12 @@ class TemplateTestBase(object):
             deps_builder=DependencyBuilder(),
             build_stage=mock.Mock(spec=BuildStage)
         )
-        self.template_gen = self.template_gen_factory()
+        self.template_gen = self.template_gen_factory(Config())
 
     def generate_template(self, config, chalice_stage_name):
         resources = self.resource_builder.construct_resources(
             config, chalice_stage_name)
-        return self.template_gen.generate(resources)
+        return self.template_gen_factory(config).generate(resources)
 
     def lambda_function(self):
         return models.LambdaFunction(
@@ -283,7 +283,7 @@ class TestTerraformTemplate(TemplateTestBase):
             elif isinstance(r, models.FileBasedIAMPolicy):
                 r.document = self.EmptyPolicy
 
-        return self.template_gen.generate(resources)
+        return self.template_gen_factory(config).generate(resources)
 
     def get_function(self, template):
         functions = list(template['resource'][
@@ -384,6 +384,14 @@ class TestTerraformTemplate(TemplateTestBase):
         assert resources['aws_api_gateway_rest_api'][
             'rest_api']['endpoint_configuration'] == {'types': ['PRIVATE']}
 
+        assert 'aws_api_gateway_stage' not in resources
+        assert resources['aws_api_gateway_deployment']['rest_api'] == {
+            'rest_api_id': '${aws_api_gateway_rest_api.rest_api.id}',
+            'stage_description': (
+                '${md5(data.template_file.chalice_api_swagger.rendered)}'),
+            'stage_name': 'api'
+        }
+
         # We should also create the auth lambda function.
         assert 'myauth' in resources['aws_lambda_function']
 
@@ -422,6 +430,24 @@ class TestTerraformTemplate(TemplateTestBase):
                     'lambda_function_arn': (
                         '${aws_lambda_function.handler.arn}')
                 }]
+        }
+
+    def test_can_generate_chalice_terraform_variables(self, sample_app):
+        config = Config.create(chalice_app=sample_app,
+                               project_dir='.',
+                               app_name='myfoo',
+                               api_gateway_stage='dev')
+
+        template = self.generate_template(config, 'dev')
+        assert template['variable'] == {
+            'chalice_app_name': {
+                'default': 'myfoo',
+                'description': 'Chalice App Name (not editable)',
+                'type': 'string'},
+            'chalice_stage_name': {
+                'default': 'dev',
+                'description': 'Chalice Stage (not editable)',
+                'type': 'string'}
         }
 
     def test_can_package_s3_event_handler_sans_filters(self, sample_app):
