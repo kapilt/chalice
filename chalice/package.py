@@ -583,18 +583,6 @@ class TerraformGenerator(TemplateGenerator):
             'terraform': {
                 'required_version': '> 0.11.0'
             },
-            'variable': {
-                'chalice_app_name': {
-                    'type': 'string',
-                    'description': 'Chalice App Name (not editable)',
-                    'default': self._config.app_name
-                },
-                'chalice_stage_name': {
-                    'type': 'string',
-                    'description': 'Chalice Stage (not editable)',
-                    'default': self._config.chalice_stage,
-                }
-            },
             'provider': {
                 'aws': {'version': '> 2.0.0'},
                 'local': {'version': '> 1.0'},
@@ -602,7 +590,15 @@ class TerraformGenerator(TemplateGenerator):
             },
             'data': {
                 'aws_caller_identity': {'chalice': {}},
-                'aws_region': {'chalice': {}}
+                'aws_region': {'chalice': {}},
+                'null_data_provider': {
+                    'chalice': {
+                        'inputs': {
+                            'app': self._config.app_name,
+                            'stage': self._config.chalice_stage
+                        }
+                    }
+                }
             }
         }
 

@@ -458,22 +458,16 @@ class TestTerraformTemplate(TemplateTestBase):
                 }]
         }
 
-    def test_can_generate_chalice_terraform_variables(self, sample_app):
+    def test_can_generate_chalice_terraform_static_data(self, sample_app):
         config = Config.create(chalice_app=sample_app,
                                project_dir='.',
                                app_name='myfoo',
                                api_gateway_stage='dev')
 
         template = self.generate_template(config, 'dev')
-        assert template['variable'] == {
-            'chalice_app_name': {
-                'default': 'myfoo',
-                'description': 'Chalice App Name (not editable)',
-                'type': 'string'},
-            'chalice_stage_name': {
-                'default': 'dev',
-                'description': 'Chalice Stage (not editable)',
-                'type': 'string'}
+        assert template['data']['null_data_provider']['chalice']['inputs'] == {
+            'app': 'myfoo',
+            'stage': 'dev'
         }
 
     def test_can_package_s3_event_handler_sans_filters(self, sample_app):

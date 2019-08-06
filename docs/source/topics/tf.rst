@@ -77,9 +77,9 @@ to deploy our app.
 Note terraform will deploy run against all terraform files in this
 directory, so we can add additional resources for our application by
 adding terraform additional files here. The Chalice terraform template
-includes two variables that we can optionally use when constructing
-these additional resources `chalice_stage_name` and
-`chalice_app_name`, these variables should **not** be user overridden.
+includes two static data values (`app` and `stage` names) that we can
+optionally use when constructing these additional resources,
+ie. `${data.null_data_source.chalice.outputs.app}`
 
 First let's run Terraform init to install the AWS Terraform Provider::
 
