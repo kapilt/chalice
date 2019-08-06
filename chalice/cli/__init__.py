@@ -397,6 +397,12 @@ def package(ctx, single_file, stage, merge_template,
     factory = ctx.obj['factory']  # type: CLIFactory
     config = factory.create_config_obj(stage)
     packager = factory.create_app_packager(config, pkg_format, merge_template)
+    if pkg_format == 'terraform' and (merge_template or single_file):
+        click.echo((
+            "Terraform format does not support "
+            "merge-template or single-file options"))
+        raise click.Abort()
+
     if single_file:
         dirname = tempfile.mkdtemp()
         try:
