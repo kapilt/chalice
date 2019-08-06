@@ -581,15 +581,17 @@ class TerraformGenerator(TemplateGenerator):
         template = {
             'resource': {},
             'terraform': {
-                'required_version': '> 0.11.0'
+                'required_version': '> 0.11.0, < 0.13.0'
             },
             'provider': {
-                'aws': {'version': '> 2.0.0'},
+                'template': {'version': '~> 2'},
+                'aws': {'version': '~> 2'},
+                'null': {'version': '~> 2'},
             },
             'data': {
                 'aws_caller_identity': {'chalice': {}},
                 'aws_region': {'chalice': {}},
-                'null_data_provider': {
+                'null_data_source': {
                     'chalice': {
                         'inputs': {
                             'app': self._config.app_name,
